@@ -10,10 +10,6 @@ import WhatIDo from "./WhatIDo";
 import Work from "./Work";
 import setSplitText from "./utils/splitText";
 import { debounce } from "lodash-es";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { gsap } from "gsap";
-
-gsap.registerPlugin(ScrollTrigger);
 
 const TechStack = lazy(() => import("./TechStack"));
 
@@ -32,110 +28,50 @@ const MainContainer = ({ children }: PropsWithChildren) => {
   const [viewportSize, setViewportSize] = useState<ViewportSize>('desktop');
   const isMobileView = viewportSize === 'mobile' || viewportSize === 'tablet';
 
-  // Enhanced resize handler with ScrollTrigger refresh
+  // Debounce resize handler to prevent excessive re-renders
   const handleResize = useCallback(debounce(() => {
     const width = window.innerWidth;
     
-    let newViewportSize: ViewportSize;
     if (width < BREAKPOINTS.tablet) {
-      newViewportSize = 'mobile';
+      setViewportSize('mobile');
     } else if (width < BREAKPOINTS.laptop) {
-      newViewportSize = 'tablet';
+      setViewportSize('tablet');
     } else if (width < BREAKPOINTS.desktop) {
-      newViewportSize = 'laptop';
+      setViewportSize('laptop');
     } else if (width < BREAKPOINTS.large) {
-      newViewportSize = 'desktop';
+      setViewportSize('desktop');
     } else {
-      newViewportSize = 'large';
+      setViewportSize('large');
     }
     
-    // Only update if viewport size actually changed
-    if (newViewportSize !== viewportSize) {
-      setViewportSize(newViewportSize);
-    }
-    
-    // Update CSS custom properties for responsive design
-    document.documentElement.style.setProperty('--viewport-width', `${width}px`);
-    document.documentElement.style.setProperty('--viewport-height', `${window.innerHeight}px`);
-    
-    // Refresh ScrollTrigger and split text
-    ScrollTrigger.refresh();
+    // Update split text after viewport change
     setSplitText();
-  }, 150), [viewportSize]);
-
-  // Enhanced viewport height calculation for mobile browsers
-  const updateViewportHeight = useCallback(() => {
-    const vh = window.innerHeight * 0.01;
-    document.documentElement.style.setProperty('--vh', `${vh}px`);
-  }, []);
+  }, 100), []);
 
   useEffect(() => {
     // Initial setup
     handleResize();
-    updateViewportHeight();
     
-    // Add event listeners with passive option for better performance
-    window.addEventListener('resize', handleResize, { passive: true });
-    window.addEventListener('orientationchange', () => {
-      // Delay to ensure orientation change is complete
-      setTimeout(() => {
-        updateViewportHeight();
-        handleResize();
-      }, 100);
-    }, { passive: true });
-    
-    // Update viewport height on scroll for mobile browsers
-    let ticking = false;
-    const handleScroll = () => {
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          updateViewportHeight();
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-    
-    if (isMobileView) {
-      window.addEventListener('scroll', handleScroll, { passive: true });
-    }
+    // Add event listeners
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
     
     // Cleanup
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
-      window.removeEventListener('scroll', handleScroll);
       handleResize.cancel();
     };
-  }, [handleResize, updateViewportHeight, isMobileView]);
+  }, [handleResize]);
 
   // Add viewport class to body for global styling
   useEffect(() => {
-    const bodyClasses = [
-      `viewport-${viewportSize}`,
-      isMobileView ? 'mobile-view' : 'desktop-view'
-    ];
-    
-    document.body.className = bodyClasses.join(' ');
-    
-    // Add data attributes for CSS targeting
-    document.body.setAttribute('data-viewport', viewportSize);
-    document.body.setAttribute('data-mobile', isMobileView.toString());
+    document.body.className = `viewport-${viewportSize}`;
     
     return () => {
       document.body.className = '';
-      document.body.removeAttribute('data-viewport');
-      document.body.removeAttribute('data-mobile');
     };
-  }, [viewportSize, isMobileView]);
-
-  // Performance optimization: preload critical components
-  useEffect(() => {
-    if (!isMobileView) {
-      // Preload TechStack component for desktop
-      import("./TechStack").catch(console.error);
-    }
-  }, [isMobileView]);
+  }, [viewportSize]);
 
   return (
     <div className={`main-container viewport-${viewportSize}`}>
@@ -154,18 +90,7 @@ const MainContainer = ({ children }: PropsWithChildren) => {
             <Career />
             <Work />
             {!isMobileView && (
-              <Suspense fallback={
-                <div className="loading-placeholder" style={{
-                  height: '100vh',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--color-accent)',
-                  fontSize: '1.2rem'
-                }}>
-                  Loading Tech Stack...
-                </div>
-              }>
+              <Suspense fallback={<div className="loading-placeholder">Loading Tech Stack...</div>}>
                 <TechStack />
               </Suspense>
             )}
