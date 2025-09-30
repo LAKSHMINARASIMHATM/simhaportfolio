@@ -10,7 +10,8 @@
   --color-accent: #c2a4ff;
   --container-padding: 4rem;
   --container-max-width: 1440px;
-  --transition-base: 0.3s ease;
+  --transition-base: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   --border-radius: 8px;
   --spacing-xs: 0.5rem;
   --spacing-sm: 1rem;
@@ -37,6 +38,12 @@
   --backgroundColor: var(--color-bg);
   --vh: 1vh;
   --vh: 1svh;
+  
+  /* Performance optimizations */
+  --gpu-acceleration: translateZ(0);
+  --will-change-transform: transform;
+  --will-change-opacity: opacity;
+  --backface-visibility: hidden;
 }
 
 /* Typography */
@@ -44,6 +51,7 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-primary);
   line-height: 1.2;
   margin: 0 0 var(--spacing-sm) 0;
+  font-weight: 400;
 }
 
 /* Base Elements */
@@ -53,9 +61,30 @@ h1, h2, h3, h4, h5, h6 {
   padding: 0;
 }
 
+*,
+*::before,
+*::after {
+  backface-visibility: var(--backface-visibility);
+}
+
 html {
   height: 100%;
   overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 body {
@@ -66,6 +95,12 @@ body {
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  background-color: #000;
+  flex-grow: 1;
+  --cWidth: calc(100% - 30px);
+  --cMaxWidth: 1920px;
+  max-width: 100vw;
+  transform: var(--gpu-acceleration);
 }
 
 a {
@@ -86,10 +121,98 @@ a:hover {
   padding: 0 var(--container-padding);
 }
 
+.main-body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  transform: var(--gpu-acceleration);
+}
+
+.container-main {
+  width: 100%;
+  margin: auto;
+  position: relative;
+}
+
+.container1 {
+  width: var(--cWidth);
+  height: var(--vh);
+  margin: auto;
+  position: relative;
+}
+
+/* Text splitting styles */
+.split-line {
+  overflow: hidden;
+}
+
+.split-h2 {
+  overflow: hidden;
+  display: flex;
+  white-space: nowrap;
+  flex-wrap: nowrap;
+}
+
+.char {
+  display: inline-block;
+  transform-origin: 50% 50% -50px;
+  backface-visibility: hidden;
+  will-change: transform, opacity, filter;
+}
+
+/* Main Content */
+main {
+  opacity: 1;
+  transition: opacity var(--transition-base);
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  transform: var(--gpu-acceleration);
+}
+
+.main-active {
+  opacity: 0;
+  animation: fadeIn 1s 1;
+  animation-fill-mode: forwards;
+}
+
+@keyframes fadeIn {
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Tech Stack */
+.techstack {
+  width: 100%;
+  position: relative;
+  height: var(--vh);
+  margin: auto;
+  margin-top: 50px;
+  margin-bottom: -100px;
+  transform: var(--gpu-acceleration);
+}
+
+.techstack h2 {
+  font-size: clamp(40px, 8vw, 80px);
+  text-align: center;
+  position: absolute;
+  width: 100%;
+  top: clamp(60px, 12vh, 120px);
+  left: 0;
+  font-weight: 400;
+  text-transform: uppercase;
+  transition: all var(--transition-base);
+}
+
 /* Responsive Breakpoints */
 @media (max-width: 1200px) {
   :root {
     --container-padding: 3rem;
+  }
+  
+  body {
+    --cWidth: 94%;
   }
 }
 
@@ -106,6 +229,14 @@ a:hover {
     --container-padding: 1.5rem;
     --spacing-md: 1.5rem;
     --spacing-lg: 2rem;
+  }
+  
+  body {
+    --cWidth: calc(100% - 25px);
+  }
+  
+  .techstack h2 {
+    font-size: clamp(30px, 6vw, 40px);
   }
 }
 
@@ -132,89 +263,87 @@ a:hover {
   border-width: 0;
 }
 
-/* Main Content */
-main {
-  opacity: 1;
-  transition: opacity var(--transition-base);
-  min-height: 100vh;
-  min-height: 100svh;
+.loading-placeholder {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--color-accent);
+  font-size: 1.1rem;
+  font-weight: 500;
+  opacity: 0.8;
 }
 
-.main-active {
-  opacity: 0;
-  animation: fadeIn 1s 1;
-  animation-fill-mode: forwards;
+/* Viewport-specific styles */
+.viewport-mobile {
+  --container-padding: 1rem;
 }
-@keyframes fadeIn {
-  100% {
-    opacity: 1;
+
+.viewport-tablet {
+  --container-padding: 1.5rem;
+}
+
+.viewport-laptop {
+  --container-padding: 2rem;
+}
+
+.viewport-desktop {
+  --container-padding: 3rem;
+}
+
+.viewport-large {
+  --container-padding: 4rem;
+}
+
+/* Performance optimizations for mobile */
+@media (hover: none) and (pointer: coarse) {
+  * {
+    -webkit-tap-highlight-color: transparent;
   }
-}
-body {
-  margin: 0;
-  height: auto;
-  background-color: #000;
-  flex-grow: 1;
-  --cWidth: calc(100% - 30px);
-  --cMaxWidth: 1920px;
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-.main-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-.container-main {
-  width: 100%;
-  margin: auto;
-  position: relative;
-}
-.container1 {
-  width: var(--cWidth);
-  height: var(--vh);
-  margin: auto;
-  position: relative;
-}
-.split-line {
-  overflow: hidden;
-}
-.split-h2 {
-  overflow: hidden;
-  display: flex;
-  white-space: nowrap;
-  flex-wrap: nowrap;
-}
-
-.techstack {
-  width: 100%;
-  position: relative;
-  height: var(--vh);
-  margin: auto;
-  margin-top: 50px;
-  margin-bottom: -100px;
-}
-
-.techstack h2 {
-  font-size: 80px;
-  text-align: center;
-  position: absolute;
-  width: 100%;
-  top: 120px;
-  left: 0;
-  font-weight: 400;
-  text-transform: uppercase;
-}
-
-@media screen and (min-width: 768px) {
+  
   body {
-    --cWidth: 94%;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
   }
 }
-@media screen and (max-width: 900px) {
-  .techstack h2 {
-    font-size: 40px;
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+  }
+}
+
+/* Focus styles for accessibility */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Print styles */
+@media print {
+  * {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  
+  body {
+    font-size: 12pt;
+    line-height: 1.4;
+  }
+  
+  .container {
+    max-width: 100%;
+    padding: 0 1cm;
   }
 }

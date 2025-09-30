@@ -10,6 +10,10 @@ import WhatIDo from "./WhatIDo";
 import Work from "./Work";
 import setSplitText from "./utils/splitText";
 import { debounce } from "lodash-es";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { gsap } from "gsap";
+
+gsap.registerPlugin(ScrollTrigger);
 
 const TechStack = lazy(() => import("./TechStack"));
 
@@ -28,50 +32,110 @@ const MainContainer = ({ children }: PropsWithChildren) => {
   const [viewportSize, setViewportSize] = useState<ViewportSize>('desktop');
   const isMobileView = viewportSize === 'mobile' || viewportSize === 'tablet';
 
-  // Debounce resize handler to prevent excessive re-renders
+  // Enhanced resize handler with ScrollTrigger refresh
   const handleResize = useCallback(debounce(() => {
     const width = window.innerWidth;
     
+    let newViewportSize: ViewportSize;
     if (width < BREAKPOINTS.tablet) {
-      setViewportSize('mobile');
+      newViewportSize = 'mobile';
     } else if (width < BREAKPOINTS.laptop) {
-      setViewportSize('tablet');
+      newViewportSize = 'tablet';
     } else if (width < BREAKPOINTS.desktop) {
-      setViewportSize('laptop');
+      newViewportSize = 'laptop';
     } else if (width < BREAKPOINTS.large) {
-      setViewportSize('desktop');
+      newViewportSize = 'desktop';
     } else {
-      setViewportSize('large');
+      newViewportSize = 'large';
     }
     
-    // Update split text after viewport change
+    // Only update if viewport size actually changed
+    if (newViewportSize !== viewportSize) {
+      setViewportSize(newViewportSize);
+    }
+    
+    // Update CSS custom properties for responsive design
+    document.documentElement.style.setProperty('--viewport-width', `${width}px`);
+    document.documentElement.style.setProperty('--viewport-height', `${window.innerHeight}px`);
+    
+    // Refresh ScrollTrigger and split text
+    ScrollTrigger.refresh();
     setSplitText();
-  }, 100), []);
+  }, 150), [viewportSize]);
+
+  // Enhanced viewport height calculation for mobile browsers
+  const updateViewportHeight = useCallback(() => {
+    const vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+  }, []);
 
   useEffect(() => {
     // Initial setup
     handleResize();
+    updateViewportHeight();
     
-    // Add event listeners
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleResize);
+    // Add event listeners with passive option for better performance
+    window.addEventListener('resize', handleResize, { passive: true });
+    window.addEventListener('orientationchange', () => {
+      // Delay to ensure orientation change is complete
+      setTimeout(() => {
+        updateViewportHeight();
+        handleResize();
+      }, 100);
+    }, { passive: true });
+    
+    // Update viewport height on scroll for mobile browsers
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          updateViewportHeight();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    
+    if (isMobileView) {
+      window.addEventListener('scroll', handleScroll, { passive: true });
+    }
     
     // Cleanup
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
+      window.removeEventListener('scroll', handleScroll);
       handleResize.cancel();
     };
-  }, [handleResize]);
+  }, [handleResize, updateViewportHeight, isMobileView]);
 
   // Add viewport class to body for global styling
   useEffect(() => {
-    document.body.className = `viewport-${viewportSize}`;
+    const bodyClasses = [
+      `viewport-${viewportSize}`,
+      isMobileView ? 'mobile-view' : 'desktop-view'
+    ];
+    
+    document.body.className = bodyClasses.join(' ');
+    
+    // Add data attributes for CSS targeting
+    document.body.setAttribute('data-viewport', viewportSize);
+    document.body.setAttribute('data-mobile', isMobileView.toString());
     
     return () => {
       document.body.className = '';
+      document.body.removeAttribute('data-viewport');
+      document.body.removeAttribute('data-mobile');
     };
-  }, [viewportSize]);
+  }, [viewportSize, isMobileView]);
+
+  // Performance optimization: preload critical components
+  useEffect(() => {
+    if (!isMobileView) {
+      // Preload TechStack component for desktop
+      import("./TechStack").catch(console.error);
+    }
+  }, [isMobileView]);
 
   return (
     <div className={`main-container viewport-${viewportSize}`}>
@@ -90,7 +154,18 @@ const MainContainer = ({ children }: PropsWithChildren) => {
             <Career />
             <Work />
             {!isMobileView && (
-              <Suspense fallback={<div className="loading-placeholder">Loading Tech Stack...</div>}>
+              <Suspense fallback={
+                <div className="loading-placeholder" style={{
+                  height: '100vh',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--color-accent)',
+                  fontSize: '1.2rem'
+                }}>
+                  Loading Tech Stack...
+                </div>
+              }>
                 <TechStack />
               </Suspense>
             )}
